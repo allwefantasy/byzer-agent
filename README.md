@@ -15,7 +15,7 @@ Easy, fast, and cheap agent framework for everyone
 
 *Latest News* 🔥
 
-- [2023/12] Byzer-Agent will be released in Byzer-LLM 0.1.17
+- [2023/12] Byzer-Agent released in Byzer-LLM 0.1.19
 
 ---
 
@@ -94,14 +94,14 @@ The code of this example is [here](./notebooks/quick_rag.ipynb).
 from byzerllm.apps.agent import Agents
 from byzerllm.apps.agent.user_proxy_agent import UserProxyAgent
 from byzerllm.apps.agent.extensions.data_analysis import DataAnalysis
-from byzerllm.utils.client import qwen_chat_wrapper
+
 
 user = Agents.create_local_agent(UserProxyAgent,"user",llm,retrieval,
                                 human_input_mode="NEVER",
                                 max_consecutive_auto_reply=0)
 
 data_analysis = DataAnalysis("chat4","william","/home/byzerllm/projects/jupyter-workspace/test.csv",
-                             llm,retrieval,chat_wrapper=qwen_chat_wrapper)
+                             llm,retrieval)
 
 
 ```
