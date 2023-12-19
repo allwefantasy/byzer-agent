@@ -17,7 +17,7 @@ Easy, fast, and distributed agent framework for everyone
 
 *Latest News* 🔥
 
-- [2023/12] Byzer-Agent released in Byzer-LLM 0.1.20
+- [2023/12] Byzer-Agent released in Byzer-LLM 0.1.22
 
 ---
 
