@@ -21,7 +21,7 @@ Easy, fast, and distributed agent framework for everyone
 
 ---
 
-Byzer-Agent is an distributed agent framework for LLM. It is designed to be easy to use, easy to scale, and easy to debug. It is built on top of Ray, a high-performance distributed execution framework.
+Byzer-Agent is an distributed agent framework for LLM. It is designed to be easy to use, easy to scale, and easy to debug. It is built on top of Ray, developed from [autogen](https://github.com/microsoft/autogen), a high-performance distributed execution framework.
 
 The code of Byzer-Agent is under the project [Byzer-LLM](https://github.com/allwefantasy/byzer-llm). So this project is just a document project.
 
@@ -425,6 +425,141 @@ privew_file_agent = Agents.create_remote_agent(PreviewFileAgent,"privew_file_age
 Notice that, remote agent can only talk to remote agent, and local agent can only talk to local agent.
 
 
+Here are a code example show you how to create and invoke the remote agent:
+
+```python
+from byzerllm.apps.agent import Agents
+from byzerllm.apps.agent.assistant_agent import AssistantAgent
+from byzerllm.apps.agent.user_proxy_agent import UserProxyAgent
+from byzerllm.apps.agent.extensions.python_codesandbox_agent import PythonSandboxAgent
+from byzerllm.apps.agent.extensions.preview_file_agent import PreviewFileAgent
+
+python_interpreter = Agents.create_remote_agent(PythonSandboxAgent,"python_interpreter",
+                                                llm,retrieval,
+                                                max_consecutive_auto_reply=1000,
+                                                system_message="you are a code sandbox")
+
+privew_file_agent = Agents.create_remote_agent(PreviewFileAgent,"privew_file_agent",llm,retrieval,
+                                   max_consecutive_auto_reply=1000,
+                                   code_agent = python_interpreter
+                                   )
+
+user = Agents.create_remote_agent(UserProxyAgent,"user",llm,retrieval,
+                                human_input_mode="NEVER",
+                                max_consecutive_auto_reply=0)
+
+```
+
+Then you can begin the talk:
+
+```python
+import ray
+
+ray.get(privew_file_agent._prepare_chat.remote(python_interpreter, True))
+
+file_path = "/home/byzerllm/projects/jupyter-workspace/test.csv"
+file_ref = ray.put(open(file_path,"rb").read())
+
+ray.get(
+user.initiate_chat.remote(
+privew_file_agent,
+message={
+    "content":"",
+    "metadata":{
+        "file_path": file_path,
+        "file_ref": file_ref
+    }
+})
+)
+```
+
+Since the agent is `remote`, so you should call the function in agent with `agent.function.remote` style.
+
+Here is the console output:
+
+```text
+(PreviewFileAgent pid=2135038) user (to privew_file_agent):
+(PreviewFileAgent pid=2135038) 
+(PreviewFileAgent pid=2135038) 
+(PreviewFileAgent pid=2135038) 
+(PreviewFileAgent pid=2135038) --------------------------------------------------------------------------------
+(PreviewFileAgent pid=2135038) python_interpreter (to privew_file_agent):
+(PreviewFileAgent pid=2135038) 
+(PreviewFileAgent pid=2135038) exitcode: 0 (execution succeeded)
+(PreviewFileAgent pid=2135038) Code output:    ID   Deaths  Year                 Entity
+(PreviewFileAgent pid=2135038) 0   1  1267360  1900  All natural disasters
+(PreviewFileAgent pid=2135038) 1   2   200018  1901  All natural disasters
+(PreviewFileAgent pid=2135038) 2   3    46037  1902  All natural disasters
+(PreviewFileAgent pid=2135038) 3   4     6506  1903  All natural disasters
+(PreviewFileAgent pid=2135038) 4   5    22758  1905  All natural disasters
+(PreviewFileAgent pid=2135038) 
+(PreviewFileAgent pid=2135038) 
+(PreviewFileAgent pid=2135038) --------------------------------------------------------------------------------
+(PythonSandboxAgent pid=2135037) privew_file_agent (to python_interpreter):
+(PythonSandboxAgent pid=2135037) 
+(PythonSandboxAgent pid=2135037) ```python
+(PythonSandboxAgent pid=2135037) import pandas as pd
+(PythonSandboxAgent pid=2135037) 
+(PythonSandboxAgent pid=2135037) file_path = "/home/byzerllm/projects/jupyter-workspace/test.csv"
+(PythonSandboxAgent pid=2135037) 
+(PythonSandboxAgent pid=2135037) try:
+(PythonSandboxAgent pid=2135037)     if file_path.endswith(".csv"):
+(PythonSandboxAgent pid=2135037)         df = pd.read_csv(file_path)
+(PythonSandboxAgent pid=2135037)     elif file_path.endswith(".xlsx") or file_path.endswith(".xls"):
+(PythonSandboxAgent pid=2135037)         df = pd.read_excel(file_path)
+(PythonSandboxAgent pid=2135037)     else:
+(PythonSandboxAgent pid=2135037)         raise ValueError("Unsupported file format")
+(PythonSandboxAgent pid=2135037)         
+(PythonSandboxAgent pid=2135037)     loaded_successfully = True
+(PythonSandboxAgent pid=2135037)     
+(PythonSandboxAgent pid=2135037) except Exception as e:
+(PythonSandboxAgent pid=2135037)     print(f"Failed to load file: {e}")
+(PythonSandboxAgent pid=2135037)     loaded_successfully = False
+(PythonSandboxAgent pid=2135037)     
+(PythonSandboxAgent pid=2135037) if loaded_successfully:
+(PythonSandboxAgent pid=2135037)     file_preview = df.head()
+(PythonSandboxAgent pid=2135037) else:
+(PythonSandboxAgent pid=2135037)     file_preview = "Error: Failed to load file"
+(PythonSandboxAgent pid=2135037)     
+(PythonSandboxAgent pid=2135037) print(file_preview)
+(PythonSandboxAgent pid=2135037) ```
+(PythonSandboxAgent pid=2135037) 
+(PythonSandboxAgent pid=2135037) This code reads the file located at `file_path` using either the `pd.read_csv()` or `pd.read_excel()` function depending on the file type (determined by the file extension). If the file is loaded successfully, the first 5 rows of the DataFrame are stored in the `file_preview` variable and printed. If there is an error loading the file, an error message is stored in the `file_preview` variable and printed instead.
+(PythonSandboxAgent pid=2135037) 
+(PythonSandboxAgent pid=2135037) --------------------------------------------------------------------------------
+(UserProxyAgent pid=2135039) privew_file_agent (to user):
+(UserProxyAgent pid=2135039) 
+(UserProxyAgent pid=2135039) ID,Deaths,Year,Entity
+(UserProxyAgent pid=2135039) 1,1267360,1900,All natural disasters
+(UserProxyAgent pid=2135039) 2,200018,1901,All natural disasters
+(UserProxyAgent pid=2135039) 3,46037,1902,All natural disasters
+(UserProxyAgent pid=2135039) 4,6506,1903,All natural disasters
+(UserProxyAgent pid=2135039) 5,22758,1905,All natural disasters
+(UserProxyAgent pid=2135039) 
+(UserProxyAgent pid=2135039) 
+(UserProxyAgent pid=2135039) --------------------------------------------------------------------------------
+```
+
+If you wan't to get agent's messagebox, try use the following code:
+
+```python
+ray.get(
+   user.get_chat_messages.remote() 
+)
+```
+
+The output:
+
+```text
+defaultdict(list,
+            {'privew_file_agent': [{'content': '',
+               'metadata': {'file_path': '/home/byzerllm/projects/jupyter-workspace/test.csv',
+                'file_ref': ObjectRef(00ffffffffffffffffffffffffffffffffffffff1800000002e1f505)},
+               'role': 'assistant'},
+              {'content': 'ID,Deaths,Year,Entity\n1,1267360,1900,All natural disasters\n2,200018,1901,All natural disasters\n3,46037,1902,All natural disasters\n4,6506,1903,All natural disasters\n5,22758,1905,All natural disasters\n',
+               'metadata': {'TERMINATE': True},
+               'role': 'user'}]})
+```
 
 
 
