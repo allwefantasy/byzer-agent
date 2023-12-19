@@ -5,7 +5,7 @@
 </p>
 
 <h3 align="center">
-Easy, fast, and cheap agent framework for everyone
+Easy, fast, and distributed agent framework for everyone
 </h3>
 
 <p align="center">
@@ -34,6 +34,7 @@ The code of Byzer-Agent is under the project [Byzer-LLM](https://github.com/allw
 * [RAG Example](#rag-example)
 * [DataAnalysis](#DataAnalysis)
 * [Custom Agent](#custom-agent)
+* [Remote Agent](#remote-agent)
 
 ## Architecture
 
