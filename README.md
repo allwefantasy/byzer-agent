@@ -21,20 +21,28 @@ Easy, fast, and distributed agent framework for everyone
 
 ---
 
-Byzer-Agent is an agent framework for LLM. It is designed to be easy to use, easy to scale, and easy to debug. It is built on top of Ray, a high-performance distributed execution framework.
+Byzer-Agent is an distributed agent framework for LLM. It is designed to be easy to use, easy to scale, and easy to debug. It is built on top of Ray, a high-performance distributed execution framework.
 
 The code of Byzer-Agent is under the project [Byzer-LLM](https://github.com/allwefantasy/byzer-llm). So this project is just a document project.
 
 ---
 
----
-
+* [Installation](#installation)
 * [Architecture](#Architecture)
 * [DataAnalysis (multi-agent)](#DataAnalysis-(multi-agent))
 * [RAG Example](#rag-example)
-* [DataAnalysis](#DataAnalysis)
+* [DataAnalysis Example](#DataAnalysis-Example)
 * [Custom Agent](#custom-agent)
 * [Remote Agent](#remote-agent)
+
+##  Installation
+
+Install the following projects step by step.
+
+1. [Byzer-LLM](https://github.com/allwefantasy/byzer-llm), 
+2. [Byzer-Retrieval](https://github.com/allwefantasy/byzer-retrieval)
+
+---
 
 ## Architecture
 
@@ -53,11 +61,6 @@ The code of Byzer-Agent is under the project [Byzer-LLM](https://github.com/allw
 ---
 
 ## RAG Example
-
-Please install the following projects first:
-
-1. [Byzer-LLM](https://github.com/allwefantasy/byzer-llm), 
-2. [Byzer-Retrieval](https://github.com/allwefantasy/byzer-retrieval)
 
 
 Here is the example code:
@@ -96,7 +99,7 @@ The code of this example is [here](./notebooks/quick_rag.ipynb).
 
 ---
 
-## DataAnalysis
+## DataAnalysis Example
 
 * Connect to Ray Cluster
 
@@ -346,6 +349,8 @@ How to create a custom agent?
   <img src="./images/CustomAgent.jpg" width="600" />
 </p>
 
+Try to extend the class `from byzerllm.apps.agent.conversable_agent import ConversableAgent`.
+
 The agent provides two key communication funciton.
 
 ### send
@@ -392,14 +397,23 @@ self.register_reply([Agent, ClientActorHandle,str], ConversableAgent.check_termi
 ```
 
 Then when a message comes, the function `generate_xxxx_reply` will be invoke.
-
-
 No matter the agent are local or remote, you can use the same `send` and `reply` function.
+
+If you want to terminate the chat: you can finally return like this:
+
+```python
+return True, {"content":reply,"metadata":{"TERMINATE":True}}    
+```
+
+Or make sure the `content` the last line is "TERMINATE". Then the `ConversableAgent.check_termination_and_human_reply` will check it
+every chat happens.
+
+There are a lot of agent examples in [agent-extenions](https://github.com/allwefantasy/byzer-llm/tree/master/src/byzerllm/apps/agent/extensions).
 
 ## Remote Agent
 
 You can use `from byzerllm.apps.agent import Agents` Agents to create a local or remote agent, 
-for example, you wan't to create a remote agent:
+for example, you can create a remote agent using the following code:
 
 ```python
 privew_file_agent = Agents.create_remote_agent(PreviewFileAgent,"privew_file_agent",llm,retrieval,
