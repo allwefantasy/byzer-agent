@@ -96,6 +96,33 @@ BIGO 大数据团队在 2022 年 9 月加入 Gluten 项目后，已经在生产�
 
 ```
 
+You can continue to chat with the agent:
+
+```python
+user.initiate_chat(
+retrieval_agent,
+message={
+    "content":"BIGO 大数据团队是什么时候加入 Gluten 项目的",
+    "metadata":{        
+    }
+},clear_history=False)
+```
+
+The output:
+
+```text
+user (to retrieval_agent):
+
+BIGO 大数据团队是什么时候加入 Gluten 项目的
+
+--------------------------------------------------------------------------------
+retrieval_agent (to user):
+
+BIGO大数据团队于2022年9月加入Gluten项目。
+
+--------------------------------------------------------------------------------
+```
+
 The code of this example is [here](./notebooks/quick_rag.ipynb).
 
 ---
