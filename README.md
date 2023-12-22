@@ -35,20 +35,21 @@ The code of Byzer-Agent is under the project [Byzer-LLM](https://github.com/allw
 * [Custom Agent](#custom-agent)
 * [Remote Agent](#remote-agent)
 
-##  Installation
-
-Install the following projects step by step.
-
-1. [Byzer-LLM](https://github.com/allwefantasy/byzer-llm), 
-2. [Byzer-Retrieval](https://github.com/allwefantasy/byzer-retrieval)
-
----
-
 ## Architecture
 
 <p align="center">
   <img src="./images/byzer-tools.jpg" width="600" />
 </p>
+
+---
+
+
+##  Installation
+
+Install the following projects step by step.
+
+1. [Byzer-LLM](https://github.com/allwefantasy/byzer-llm) 
+2. [Byzer-Retrieval](https://github.com/allwefantasy/byzer-retrieval)
 
 ---
 
@@ -62,8 +63,8 @@ Install the following projects step by step.
 
 ## RAG Example
 
+After you install the Byzer-LLM and Byzer-Retrieval, you can use the following code to create a RAG agent:
 
-Here is the example code:
 
 ```python
 user.initiate_chat(
