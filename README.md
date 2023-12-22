@@ -47,7 +47,7 @@ Install the following projects step by step.
 ## Architecture
 
 <p align="center">
-  <img src="./images/arch.png" width="600" />
+  <img src="./images/byzer-tools.jpg" width="600" />
 </p>
 
 ---
@@ -55,7 +55,7 @@ Install the following projects step by step.
 ## DataAnalysis (multi-agent)
 
 <p align="center">
-  <img src="./images/data_analysis_agent_group.jpg" width="600" />
+  <img src="./images/multi-agent.jpg" width="600" />
 </p>
 
 ---
