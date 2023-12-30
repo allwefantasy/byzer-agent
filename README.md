@@ -108,6 +108,8 @@ message={
 },clear_history=False)
 ```
 
+Notice that, we set `clear_history` to False, so the previous conversation will be kept.
+
 The output:
 
 ```text
@@ -132,25 +134,14 @@ The code of this example is [here](./notebooks/quick_rag.ipynb).
 * Connect to Ray Cluster
 
 ```python
-code_search_path=["/home/byzerllm/softwares/byzer-retrieval-lib/"]
-env_vars = {"JAVA_HOME": "/home/byzerllm/softwares/jdk-21",
-            "PATH":"/home/byzerllm/softwares/jdk-21/bin:/home/byzerllm/.rvm/gems/ruby-3.2.2/bin:/home/byzerllm/.rvm/gems/ruby-3.2.2@global/bin:/home/byzerllm/.rvm/rubies/ruby-3.2.2/bin:/home/byzerllm/.rbenv/shims:/home/byzerllm/.rbenv/bin:/home/byzerllm/softwares/byzer-lang-all-in-one-linux-amd64-3.3.0-2.3.7/jdk8/bin:/usr/local/cuda/bin:/usr/local/cuda/bin:/home/byzerllm/.rbenv/shims:/home/byzerllm/.rbenv/bin:/home/byzerllm/miniconda3/envs/byzerllm-dev/bin:/home/byzerllm/miniconda3/condabin:/home/byzerllm/.local/bin:/home/byzerllm/bin:/usr/local/cuda/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/byzerllm/.rvm/bin:/home/byzerllm/.rvm/bin"}
-
 import os
 os.environ["RAY_DEDUP_LOGS"] = "0" 
 
 import ray
-from byzerllm.utils.retrieval import ByzerRetrieval
 from byzerllm.utils.client import ByzerLLM,LLMRequest,LLMResponse,LLMHistoryItem,InferBackend
 from byzerllm.records import SearchQuery
 
-ray.init(address="auto",namespace="default",
-                 job_config=ray.job_config.JobConfig(code_search_path=code_search_path,
-                                                      runtime_env={"env_vars": env_vars})
-                 )   
-
-retrieval = ByzerRetrieval()
-retrieval.launch_gateway()
+ray.init(address="auto",namespace="default")   
 
 llm = ByzerLLM()
 chat_model_name = "chat"
@@ -161,10 +152,9 @@ if not llm.is_model_exist("chat"):
         model_path="/home/byzerllm/models/openbuddy-zephyr-7b-v14.1",
         pretrained_model_type="custom/auto",
         udf_name=chat_model_name,
-        infer_params={"backend.max_num_batched_tokens":32768}
+        infer_params={}
     )
 
-llm.setup_default_model_name(chat_model_name)  
 
 def show_code(lang,code_string):
     from IPython.display import display, Markdown    
@@ -187,17 +177,24 @@ def show_image(content):
 
 
 ```python
+import ray
 from byzerllm.apps.agent import Agents
 from byzerllm.apps.agent.user_proxy_agent import UserProxyAgent
 from byzerllm.apps.agent.extensions.data_analysis import DataAnalysis
 
 
-user = Agents.create_local_agent(UserProxyAgent,"user",llm,retrieval,
+ray.init(address="auto",namespace="default")  
+
+llm = ByzerLLM()
+chat_model_name = "chat"
+llm.setup_default_model_name(chat_model_name)  
+
+user = Agents.create_local_agent(UserProxyAgent,"user",llm,None,
                                 human_input_mode="NEVER",
                                 max_consecutive_auto_reply=0)
 
 data_analysis = DataAnalysis("chat4","william","/home/byzerllm/projects/jupyter-workspace/test.csv",
-                             llm,retrieval)
+                             llm,None)
 
 
 ```
@@ -366,6 +363,12 @@ Here is value:
 ```text
 exitcode: 0 (execution succeeded)
 Code output: The total number of deaths in 1901 is 400036.
+```
+
+If the session is terminated, you can use the following code release the resource:
+
+```python
+data_analysis.close()
 ```
 
 
