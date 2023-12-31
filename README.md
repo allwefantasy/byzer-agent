@@ -399,6 +399,12 @@ data_analysis.get_agent_names()
 # ['assistant_agent', 'visualization_agent', 'common_agent', 'privew_file_agent', 'python_interpreter']
 ```
 
+Or get the agent system message by name:
+
+```python
+data_analysis.get_agent_system_message("assistant_agent")
+```
+
 Or update the agent system message by name:
 
 ```python
