@@ -371,6 +371,39 @@ If the session is terminated, you can use the following code release the resourc
 data_analysis.close()
 ```
 
+You can update the system message if it's not perfect for you model:
+
+```python
+data_analysis.update_pipeline_system_message.remote('''
+You are a helpful data analysis assistant.
+You don't need to write code, or anwser the question. The only thing you need to do 
+is plan the data analysis pipeline.
+
+You have some tools like the following:
+
+1. visualization_agent, 这个 Agent 可以帮助你对数据进行可视化。
+2. assistant_agent, 这个 Agent 可以帮你生成代码对数据进行分析，统计。
+3. common_agent, 这个Agent 只会根据对话来帮助用户分析数据。他不会生成任何代码去分析数据。
+
+
+Please check the user's question and decide which tool you need to use. And then reply the tool name only.
+If there is no tool can help you, 
+you should reply exactly `UPDATE CONTEXT`.
+''')
+```
+
+You can get all agents in pipeline:
+
+```python
+data_analysis.get_agent_names()
+# ['assistant_agent', 'visualization_agent', 'common_agent', 'privew_file_agent', 'python_interpreter']
+```
+
+Or update the agent system message by name:
+
+```python
+data_analysis.update_agent_system_message("assistant_agent","hello")
+```
 
 ## Custom Agent
 
@@ -571,7 +604,7 @@ Here is the console output:
 (UserProxyAgent pid=2135039) --------------------------------------------------------------------------------
 ```
 
-If you wan't to get agent's messagebox, try use the following code:
+If you want to get agent's messagebox, try use the following code:
 
 ```python
 ray.get(
