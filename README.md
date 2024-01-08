@@ -63,7 +63,17 @@ Install the following projects step by step.
 
 ## RAG Example
 
-After you install the Byzer-LLM and Byzer-Retrieval, you can use the following code to create a RAG agent:
+After you install the Byzer-LLM and Byzer-Retrieval,  make sure you have started a Byzer-Retrieval Cluster:
+
+```python
+if not retrieval.is_cluster_exists("data_analysis"):
+    builder = retrieval.cluster_builder()
+    builder.set_name("data_analysis").set_location("/tmp/data_analysis").set_num_nodes(2).set_node_cpu(1).set_node_memory("3g")
+    builder.set_java_home(env_vars["JAVA_HOME"]).set_path(env_vars["PATH"]).set_enable_zgc()
+    builder.start_cluster()  
+```
+
+you can use the following code to create a RAG agent:
 
 
 ```python
