@@ -26,6 +26,10 @@ Byzer-Agent is an distributed agent framework for LLM. It is designed to be easy
 
 The code of Byzer-Agent is under the project [Byzer-LLM](https://github.com/allwefantasy/byzer-llm). So this project is just a document project.
 
+Notice that Byzer-Agent is just a framework, you can use it to build your own agents, and we will take care of the communication(local/remote), keep the conversation history, and so on.
+
+In order to implement a real business job, you can use Langchain / LlamaIndex in Byzer-Agent since they are a good library which impelement a lot of useful functions.
+
 ---
 
 * [Installation](#installation)
@@ -33,7 +37,7 @@ The code of Byzer-Agent is under the project [Byzer-LLM](https://github.com/allw
 * [DataAnalysis (multi-agent)](#DataAnalysis-(multi-agent))
 * [RAG Example](#rag-example)
 * [DataAnalysis Example](#DataAnalysis-Example)
-* [Custom Agent](#custom-agent)
+* [How to build your owner agent](#custom-agent)
 * [Remote Agent](#remote-agent)
 * [Development](#development)
 
