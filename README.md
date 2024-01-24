@@ -489,7 +489,7 @@ def generate_xxxx_reply(
             messages = self._messages[get_agent_name(sender)]  
 ```
 
-You can register the `generate_xxxx_reply` to the agent in the `__init__` function:
+Then register the `generate_xxxx_reply` to the agent in the `__init__` function:
 
 ```python
 self._reply_func_list = []        
@@ -506,8 +506,7 @@ If you want to terminate the chat: you can finally return like this:
 return True, {"content":reply,"metadata":{"TERMINATE":True}}    
 ```
 
-Or make sure the `content` the last line is "TERMINATE". Then the `ConversableAgent.check_termination_and_human_reply` will check it
-every chat happens.
+Or make sure the `content` the last line is "TERMINATE". Then the `ConversableAgent.check_termination_and_human_reply` will check it when every chat happens.
 
 There are a lot of agent examples in [agent-extenions](https://github.com/allwefantasy/byzer-llm/tree/master/src/byzerllm/apps/agent/extensions).
 
