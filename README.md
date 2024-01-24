@@ -384,6 +384,15 @@ Here is the console output:
 (DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
 ```
 
+You can also specify which agent to answer the question:
+
+```python
+data_analysis.analyze("根据文件统计下1901年总死亡人数",metadata={"agent":"assistant_agent"})
+```
+
+Then the data_analysis will send the message to the assistant_agent directly instead of using the default agent selection strategy.
+
+
 3. Output
 
 You can also use `output` function to get the result:
@@ -400,7 +409,7 @@ exitcode: 0 (execution succeeded)
 Code output: The total number of deaths in 1901 is 400036.
 ```
 
-If the session is terminated, you can use the following code release the resource:
+If the session is terminated, you can use the following code to release the resource:
 
 ```python
 data_analysis.close()
