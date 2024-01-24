@@ -228,7 +228,7 @@ except ImportError:
         return x
     
 store = Stores("MESSAGE_STORE")
-for item in store.get("data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac"):
+for item in store.get(data_analysis.name):
     print(colored(item.sender, "yellow"), "(to", f"{item.receiver}):\n", flush=True)
     print(colored(f"{item.m['content']}", "green"), flush=True)
     print("\n", "-" * 80, flush=True, sep="")
