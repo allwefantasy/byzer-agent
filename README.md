@@ -50,7 +50,7 @@ In order to implement a real business job, you can use Langchain / LlamaIndex in
 Install the following projects step by step.
 
 1. [Byzer-LLM](https://github.com/allwefantasy/byzer-llm) 
-2. [Byzer-Retrieval](https://github.com/allwefantasy/byzer-retrieval)
+2. [Byzer-Retrieval](https://github.com/allwefantasy/byzer-retrieval) (Optional)
 
 ---
 
