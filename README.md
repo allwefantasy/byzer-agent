@@ -17,7 +17,7 @@ Easy, fast, and distributed agent framework for everyone
 
 *Latest News* 🔥
 
-- [2024/03] Byzer-Agent released in Byzer-LLM 0.1.44
+- [2024/03] Byzer-Agent released in Byzer-LLM 0.1.46
 
 ---
 
@@ -531,6 +531,35 @@ If you want to terminate the conversation between two agents, you have the follo
 3. return False/True,{"content":"xxx",{"metadata":{"TERMINATE":True}}, the metadata will indicate the other agent that do not reply to this message.
 
 Please take care of the termination of the conversation, otherwise, the conversation will never stop.
+
+## 5. Agent Stream Reply
+
+If you want to reply to the user in a stream way, you can use the following code:
+
+```python
+@byzerllm.agent_reply()
+def my_reply():
+    return self.stream_reply(response_gen=["Hello, world!","How are you?"])
+```
+
+Then you can use the following code to get the stream reply:
+
+```python
+
+message = ... from some agent
+metadata = message["metadata"]        
+        
+if "stream" in metadata and metadata["stream"]:
+    agent = metadata["agent"]
+    stream_id = metadata["stream_id"]
+    result = []    
+    for item in YOUR_AGENT.get_agent_stream_messages(agent,stream_id):
+        t = item
+        result.append(t[0])
+        yield t
+```
+
+
 
 
 
