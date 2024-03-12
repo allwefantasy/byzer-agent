@@ -17,12 +17,11 @@ Easy, fast, and distributed agent framework for everyone
 
 *Latest News* 🔥
 
-- [2024/01] Byzer-Agent released in Byzer-LLM 0.1.38
-- [2023/12] Byzer-Agent released in Byzer-LLM 0.1.22
+- [2024/03] Byzer-Agent released in Byzer-LLM 0.1.44
 
 ---
 
-Byzer-Agent is an distributed agent framework for LLM. It is designed to be easy to use, easy to scale, and easy to debug. It is built on top of Ray, developed from [autogen](https://github.com/microsoft/autogen), a high-performance distributed execution framework.
+Byzer-Agent is an distributed agent framework for LLM. It is designed to be easy to use, easy to scale, and easy to debug. It is built on top of Ray, developed from [autogen](https://github.com/microsoft/autogen)。
 
 The code of Byzer-Agent is under the project [Byzer-LLM](https://github.com/allwefantasy/byzer-llm). So this project is just a document project.
 
@@ -35,11 +34,7 @@ In order to implement a real business job, you can use Langchain / LlamaIndex in
 * [Installation](#installation)
 * [Architecture](#Architecture)
 * [DataAnalysis (multi-agent)](#DataAnalysis-(multi-agent))
-* [RAG Example](#rag-example)
-* [DataAnalysis Example](#DataAnalysis-Example)
-* [How to build your owner agent](#custom-agent)
-* [Remote Agent](#remote-agent)
-* [Development](#development)
+* [Quick Start](#quick-start)
 
 ## Architecture
 
@@ -67,614 +62,475 @@ Install the following projects step by step.
 
 ---
 
-## RAG Example
+## Quick Start
 
-After you install the Byzer-LLM and Byzer-Retrieval,  make sure you have started a Byzer-Retrieval Cluster:
-
-```python
-if not retrieval.is_cluster_exists("data_analysis"):
-    builder = retrieval.cluster_builder()
-    builder.set_name("data_analysis").set_location("/tmp/data_analysis").set_num_nodes(2).set_node_cpu(1).set_node_memory("3g")
-    builder.set_java_home(env_vars["JAVA_HOME"]).set_path(env_vars["PATH"]).set_enable_zgc()
-    builder.start_cluster()  
-```
-
-you can use the following code to create a RAG agent:
-
+Here we will show you how to build a simple agent using Byzer-Agent.
+Below is a simple implementation of a HelloWorld Agent:
 
 ```python
-user.initiate_chat(
-retrieval_agent,
-message={
-    "content":"介绍下 Gluten",
-    "metadata":{
-        "file_path":"/home/byzerllm/projects/jupyter-workspace/aritcle.txt"
-    }
-},)
+from byzerllm.apps.agent.conversable_agent import ConversableAgent
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from byzerllm.utils.client import ByzerLLM
+from byzerllm.utils.retrieval import ByzerRetrieval
+from byzerllm.apps.agent import Agent
+from ray.util.client.common import ClientActorHandle, ClientObjectRef
+import byzerllm
 
-```
-
-The output:
-
-```
-user (to retrieval_agent):
-
-介绍下 Gluten
-
---------------------------------------------------------------------------------
-retrieval_agent (to user):
-
- Gluten 是一个开源项目，其目标是通过本地化 Spark 项目，以提高 Spark 在 ETL 批处理领域的性能。Gluten 项目由深耕于 Spark 加速的 Intel OAP 团队和 Kyligence 公司共建，BIGO 大数据团队于 2022 年 9 月加入研发。Gluten 项目的核心思想是使用本地的 Native 运行时库作为 Spark 插件，结合了 Spark 的可扩展性框架、优化器、容错能力和 Native 执行库的高性能，预期可以带来数倍的性能提升。
-
-Gluten 项目主要支持 Velox 和 ClickHouse 两种 Native 执行库。Velox 是 Meta 开源的本地执行库，其目标是构建统一的查询执行层，提供了数据类型、向量数据结构、Pipeline 框架、算子、表达式计算、IO 和资源管理等功能。而 ClickHouse 是 2016 年 Yandex 公司开源的一种用于联机分析(OLAP)的列式数据库，以其高性能近年来备受关注。
-
-BIGO 大数据团队在 2022 年 9 月加入 Gluten 项目后，已经在生产环境逐步灰度 Gluten，开始替换 Spark 的 ETL 工作负载，目前灰度 SQL 上获得了总体 40%+ 的成本节省。
-
-```
-
-You can continue to chat with the agent:
-
-```python
-user.initiate_chat(
-retrieval_agent,
-message={
-    "content":"BIGO 大数据团队是什么时候加入 Gluten 项目的",
-    "metadata":{        
-    }
-},clear_history=False)
-```
-
-Notice that, we set `clear_history` to False, so the previous conversation will be kept.
-
-The output:
-
-```text
-user (to retrieval_agent):
-
-BIGO 大数据团队是什么时候加入 Gluten 项目的
-
---------------------------------------------------------------------------------
-retrieval_agent (to user):
-
-BIGO大数据团队于2022年9月加入Gluten项目。
-
---------------------------------------------------------------------------------
-```
-
-The code of this example is [here](./notebooks/quick_rag.ipynb).
-
----
-
-## DataAnalysis Example
-
-* Connect to Ray Cluster
-
-```python
-import os
-os.environ["RAY_DEDUP_LOGS"] = "0" 
-
-import ray
-from byzerllm.utils.client import ByzerLLM,LLMRequest,LLMResponse,LLMHistoryItem,InferBackend
-from byzerllm.records import SearchQuery
-
-ray.init(address="auto",namespace="default")   
-
-llm = ByzerLLM()
-chat_model_name = "chat"
-
-if not llm.is_model_exist("chat"):
-    llm.setup_gpus_per_worker(2).setup_num_workers(1).setup_infer_backend(InferBackend.VLLM)
-    llm.deploy(
-        model_path="/home/byzerllm/models/openbuddy-zephyr-7b-v14.1",
-        pretrained_model_type="custom/auto",
-        udf_name=chat_model_name,
-        infer_params={}
-    )
-
-
-def show_code(lang,code_string):
-    from IPython.display import display, Markdown    
-    display(Markdown("```{}\n{}\n```".format(lang,code_string)))
-
-
-def show_text(msg):
-    from IPython.display import display, Markdown
-    display(Markdown("```{}\n{}\n```".format("text",msg))) 
-
-def show_image(content):
-    from IPython.display import display, Image
-    import base64             
-    img = Image(base64.b64decode(content))
-    display(img)    
+class HelloWorldAgent(ConversableAgent):    
     
-```
-
-* Create a DataAnalysis agent group
-
-
-```python
-import ray
-from byzerllm.apps.agent import Agents
-from byzerllm.apps.agent.user_proxy_agent import UserProxyAgent
-from byzerllm.apps.agent.extensions.data_analysis import DataAnalysis
-
-
-ray.init(address="auto",namespace="default")  
-
-llm = ByzerLLM()
-chat_model_name = "chat"
-llm.setup_default_model_name(chat_model_name)  
-
-user = Agents.create_local_agent(UserProxyAgent,"user",llm,None,
-                                human_input_mode="NEVER",
-                                max_consecutive_auto_reply=0)
-
-data_analysis = DataAnalysis("chat4","william","/home/byzerllm/projects/jupyter-workspace/test.csv",
-                             llm,None,message_store="MESSAGE_STORE")
-
-
-```
-
-Notice that the chat_name and owner in DataAnalysis will be combined as the session key. When you execute the code, will trigger the file preview agent to load the csv file. 
-
-The parameter `message_store` is used to store all messages generated by agents. You can use the following code to get the messages:
-
-```python
-from byzerllm.apps.agent.store.stores import Stores
-try:
-    from termcolor import colored
-except ImportError:
-    def colored(x, *args, **kwargs):
-        return x
+    @byzerllm.prompt()
+    def agent_prompt(self)->str:
+        '''
+        你是一个简单的问候Agent,无论用户说什么,你都回复 "Hello, world!"
+        '''
     
-store = Stores("MESSAGE_STORE")
-for item in store.get(data_analysis.name):
-    print(colored(item.sender, "yellow"), "(to", f"{item.receiver}):\n", flush=True)
-    print(colored(f"{item.m['content']}", "green"), flush=True)
-    print("\n", "-" * 80, flush=True, sep="")
-```
-
-At the same time, the conversation of agents will print to console. The Stores is make you 
-get the messages in a more flexible way.
-
-Here is the conversations:
-
-```text
-use_shared_disk: False file_path: /home/byzerllm/projects/jupyter-workspace/test.csv new_file_path: /home/byzerllm/projects/jupyter-workspace/data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac.csv
-(DataAnalysisPipeline pid=2134293) data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac (to privew_file_agent):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) We have a file, the file path is: /home/byzerllm/projects/jupyter-workspace/data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac.csv , please preview this file
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-(DataAnalysisPipeline pid=2134293) privew_file_agent (to python_interpreter):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) Here's the Python code that meets your requirements:
-(DataAnalysisPipeline pid=2134293) ```python
-(DataAnalysisPipeline pid=2134293) import pandas as pd
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) file_path = "/home/byzerllm/projects/jupyter-workspace/data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac.csv"
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) try:
-(DataAnalysisPipeline pid=2134293)     # Read the file based on its suffix
-(DataAnalysisPipeline pid=2134293)     if file_path.endswith(".csv"):
-(DataAnalysisPipeline pid=2134293)         df = pd.read_csv(file_path)
-(DataAnalysisPipeline pid=2134293)     elif file_path.endswith(".xlsx") or file_path.endswith(".xls"):
-(DataAnalysisPipeline pid=2134293)         df = pd.read_excel(file_path)
-(DataAnalysisPipeline pid=2134293)     else:
-(DataAnalysisPipeline pid=2134293)         raise ValueError(f"Unsupported file type: {file_path}")
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293)     # Set the flag to indicate successful loading
-(DataAnalysisPipeline pid=2134293)     loaded_successfully = True
-(DataAnalysisPipeline pid=2134293)     
-(DataAnalysisPipeline pid=2134293)     # Show the first 5 rows of the file
-(DataAnalysisPipeline pid=2134293)     file_preview = df.head()
-(DataAnalysisPipeline pid=2134293) except Exception as e:
-(DataAnalysisPipeline pid=2134293)     # Set the flag to indicate failed loading
-(DataAnalysisPipeline pid=2134293)     loaded_successfully = False
-(DataAnalysisPipeline pid=2134293)     
-(DataAnalysisPipeline pid=2134293)     # Show an error message
-(DataAnalysisPipeline pid=2134293)     file_preview = f"Error occurred while loading the file: {str(e)}"
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) # Print the result
-(DataAnalysisPipeline pid=2134293) print(file_preview)
-(DataAnalysisPipeline pid=2134293) ```
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) In this code, we first define the `file_path` variable to store the path of the file to be previewed. Then, we use a `try`-`except` block to handle possible exceptions during file loading.
-(DataAnalysisPipeline pid=2134293) Inside the `try` block, we check the suffix of the file path to determine how to read the file. If the file is a CSV file, we use the `pd.read_csv()` function to load it into a DataFrame. If the file is an Excel file (either .xlsx or .xls format), we use the `pd.read_excel()` function to load it. If the file has an unsupported suffix, we raise a `ValueError` exception.
-(DataAnalysisPipeline pid=2134293) If the file is loaded successfully, we set the `loaded_successfully` flag to `True`, and use the `head()` method of the DataFrame to get the first 5 rows of the file, which is stored in the `file_preview` variable.
-(DataAnalysisPipeline pid=2134293) If any exception occurs during file loading, we set the `loaded_successfully` flag to `False`, and store an error message in the `file_preview` variable.
-(DataAnalysisPipeline pid=2134293) Finally, we print the contents of the `file_preview` variable to show the result of file previewing.
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-(DataAnalysisPipeline pid=2134293) python_interpreter (to privew_file_agent):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) exitcode: 0 (execution succeeded)
-(DataAnalysisPipeline pid=2134293) Code output:    ID   Deaths  Year                 Entity
-(DataAnalysisPipeline pid=2134293) 0   1  1267360  1900  All natural disasters
-(DataAnalysisPipeline pid=2134293) 1   2   200018  1901  All natural disasters
-(DataAnalysisPipeline pid=2134293) 2   3    46037  1902  All natural disasters
-(DataAnalysisPipeline pid=2134293) 3   4     6506  1903  All natural disasters
-(DataAnalysisPipeline pid=2134293) 4   5    22758  1905  All natural disasters
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-(DataAnalysisPipeline pid=2134293) privew_file_agent (to data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) ID,Deaths,Year,Entity
-(DataAnalysisPipeline pid=2134293) 1,1267360,1900,All natural disasters
-(DataAnalysisPipeline pid=2134293) 2,200018,1901,All natural disasters
-(DataAnalysisPipeline pid=2134293) 3,46037,1902,All natural disasters
-(DataAnalysisPipeline pid=2134293) 4,6506,1903,All natural disasters
-(DataAnalysisPipeline pid=2134293) 5,22758,1905,All natural disasters
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-(DataAnalysisPipeline pid=2134293) sync the conversation of preview_file_agent to other agents
-(DataAnalysisPipeline pid=2134293) data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac (to assistant_agent):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) We have a file, the file path is: /home/byzerllm/projects/jupyter-workspace/data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac.csv , please preview this file
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-(DataAnalysisPipeline pid=2134293) data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac (to assistant_agent):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) ID,Deaths,Year,Entity
-(DataAnalysisPipeline pid=2134293) 1,1267360,1900,All natural disasters
-(DataAnalysisPipeline pid=2134293) 2,200018,1901,All natural disasters
-(DataAnalysisPipeline pid=2134293) 3,46037,1902,All natural disasters
-(DataAnalysisPipeline pid=2134293) 4,6506,1903,All natural disasters
-(DataAnalysisPipeline pid=2134293) 5,22758,1905,All natural disasters
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-(DataAnalysisPipeline pid=2134293) data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac (to visualization_agent):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) We have a file, the file path is: /home/byzerllm/projects/jupyter-workspace/data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac.csv , please preview this file
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-(DataAnalysisPipeline pid=2134293) data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac (to visualization_agent):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) ID,Deaths,Year,Entity
-(DataAnalysisPipeline pid=2134293) 1,1267360,1900,All natural disasters
-(DataAnalysisPipeline pid=2134293) 2,200018,1901,All natural disasters
-(DataAnalysisPipeline pid=2134293) 3,46037,1902,All natural disasters
-(DataAnalysisPipeline pid=2134293) 4,6506,1903,All natural disasters
-(DataAnalysisPipeline pid=2134293) 5,22758,1905,All natural disasters
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-```
-
-2. Chat
-
-```python
-data_analysis.analyze("根据文件统计下1901年总死亡人数")
-```
-
-Here is the console output:
-
-```text
-(DataAnalysisPipeline pid=2134293) user_data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac (to data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) 根据文件统计下1901年总死亡人数
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-(DataAnalysisPipeline pid=2134293) Select agent: assistant_agent to answer the question: 根据文件统计下1901年总死亡人数
-(DataAnalysisPipeline pid=2134293) data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac (to assistant_agent):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) 根据文件统计下1901年总死亡人数
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-(DataAnalysisPipeline pid=2134293) assistant_agent (to python_interpreter):
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) ```python
-(DataAnalysisPipeline pid=2134293) # filename: stats.py
-(DataAnalysisPipeline pid=2134293) import pandas as pd
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) def get_total_deaths_year(year):
-(DataAnalysisPipeline pid=2134293)     df = pd.read_csv("/home/byzerllm/projects/jupyter-workspace/data_analysis_pp_e61639d1e6e6504af87495b8bf80ecac.csv")
-(DataAnalysisPipeline pid=2134293)     total_deaths = df[df["Year"] == year]["Deaths"].sum()
-(DataAnalysisPipeline pid=2134293)     return total_deaths
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) total_deaths_1901 = get_total_deaths_year(1901)
-(DataAnalysisPipeline pid=2134293) print(f"The total number of deaths in 1901 is {total_deaths_1901}.")
-(DataAnalysisPipeline pid=2134293) ```
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) Run the above Python script to calculate the total number of deaths in 1901.
-(DataAnalysisPipeline pid=2134293) 
-(DataAnalysisPipeline pid=2134293) --------------------------------------------------------------------------------
-```
-
-You can also specify which agent to answer the question:
-
-```python
-data_analysis.analyze("根据文件统计下1901年总死亡人数",metadata={"agent":"assistant_agent"})
-```
-
-Then the data_analysis will send the message to the assistant_agent directly instead of using the default agent selection strategy.
-
-
-3. Output
-
-You can also use `output` function to get the result:
-
-```python
-o = data_analysis.output()
-show_image(o["content"])
-```
-
-Here is value:
-
-```text
-exitcode: 0 (execution succeeded)
-Code output: The total number of deaths in 1901 is 400036.
-```
-
-If the session is terminated, you can use the following code to release the resource:
-
-```python
-data_analysis.close()
-```
-
-You can update the system message if it's not perfect for you model:
-
-```python
-data_analysis.update_pipeline_system_message.remote('''
-You are a helpful data analysis assistant.
-You don't need to write code, or anwser the question. The only thing you need to do 
-is plan the data analysis pipeline.
-
-You have some tools like the following:
-
-1. visualization_agent, 这个 Agent 可以帮助你对数据进行可视化。
-2. assistant_agent, 这个 Agent 可以帮你生成代码对数据进行分析，统计。
-3. common_agent, 这个Agent 只会根据对话来帮助用户分析数据。他不会生成任何代码去分析数据。
-
-
-Please check the user's question and decide which tool you need to use. And then reply the tool name only.
-If there is no tool can help you, 
-you should reply exactly `UPDATE CONTEXT`.
-''')
-```
-
-You can get all agents in pipeline:
-
-```python
-data_analysis.get_agent_names()
-# ['assistant_agent', 'visualization_agent', 'common_agent', 'privew_file_agent', 'python_interpreter']
-```
-
-Or get the agent system message by name:
-
-```python
-data_analysis.get_agent_system_message("assistant_agent")
-```
-
-Or update the agent system message by name:
-
-```python
-data_analysis.update_agent_system_message("assistant_agent","hello")
-```
-
-## Custom Agent
-
-How to create a custom agent?
-
-<p align="center">
-  <img src="./images/CustomAgent.jpg" width="600" />
-</p>
-
-Try to extend the class `from byzerllm.apps.agent.conversable_agent import ConversableAgent`.
-
-The agent provides two key communication funciton.
-
-### send
-
-The function signature:
-
-```python
-def send(
+    def __init__(
         self,
-        message: Union[Dict, str],
-        recipient: Union[ClientActorHandle,Agent,str], #"Agent"
-        request_reply: Optional[bool] = None,
-        silent: Optional[bool] = False,
-    ) -> bool:
+        name: str,
+        llm: ByzerLLM,
+        retrieval: ByzerRetrieval,
+        system_message: Optional[str] = None,        
+        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
+        max_consecutive_auto_reply: Optional[int] = None,
+        human_input_mode: Optional[str] = "NEVER",
+        **kwargs,
+    ):  
+        system_message = self.agent_prompt()      
+        super().__init__(
+            name,
+            llm,retrieval,
+            system_message,
+            is_termination_msg,
+            max_consecutive_auto_reply,
+            human_input_mode,
+            **kwargs,
+        )
+                
+    @byzerllm.agent_reply()
+    def say_hello(
+        self,
+        raw_message: Optional[Union[Dict,str]] = None,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Union[ClientActorHandle,Agent,str]] = None,
+        config: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None]]:          
+        return True, {"content":"Hello, world!","metadata":{}}
 ```
 
-You can use this function to send a message to the other agent. You can set request_reply to False, then we just 
-send the message to the self/agent's messagebox, but will not trigger the actual reply from the recipient.
+The implementation of this HelloWorldAgent is very simple:
 
+1. We defined a class called HelloWorldAgent, which inherits from the ConversableAgent base class.
+2. Above the class definition, we use the @byzerllm.prompt() decorator to define the Agent's system message prompt to guide the 34. Agent's behavior. In this example, we instruct the Agent to reply "Hello, world!" regardless of the message received.
+3. In the __init__ method, we call the superclass constructor, passing in the necessary parameters.
+4. We defined a method called say_hello and used the @byzerllm.agent_reply() decorator to mark it as a reply function. In this method, we directly return a tuple, the first element being True, indicating this is a terminating reply, and the second element is a dictionary containing the reply content "Hello, world!" and an empty metadata dictionary.
 
-### reply
-
-You can create any function which accept the following parameters:
+Example code using this HelloWorldAgent is as follows:
 
 ```python
-def generate_xxxx_reply(
+import byzerllm
+byzerllm.connect_cluster()
+llm = byzerllm.ByzerLLM()
+llm.setup_template(model="sparkdesk_chat", template="auto")
+llm.setup_default_model_name("sparkdesk_chat")
+
+from byzerllm.apps.agent.user_proxy_agent import UserProxyAgent
+
+hello_agent = HelloWorldAgent("hello_agent", llm=llm, retrieval=None)
+user = UserProxyAgent("user", llm=llm, retrieval=None, human_input_mode="NEVER",max_consecutive_auto_reply=0)
+
+user.initiate_chat(
+    recipient=hello_agent, clear_history=True, message={
+        "content":"Hello there, may I ask who you are?"        
+    },
+)
+```
+
+In this example, we created an instance of HelloWorldAgent and an instance of UserProxyAgent. Then, we have the user agent send a message "Hello there, may I ask who you are?" to the hello_agent. Upon receiving the message, hello_agent will reply with "Hello, world!" according to our defined say_hello reply function.
+
+That's a simple implementation and usage example of a HelloWorld Agent. You can extend this base to add more reply functions and logic according to your needs."
+
+
+## Advanced Usage
+
+## 1. Agent Communication
+
+Byzer-Agent provides a simple and easy-to-use communication mechanism for agents. You can use the following methods to communicate with other agents:
+
+* initiate_chat
+* send
+
+The initiate_chat method is used to start a conversation in client side.. You can specify the recipient agent, the message to send, and other parameters. 
+
+The send method is used to agent to agent communication. 
+
+Here is an example of how to use send method:
+
+```python
+from byzerllm.apps.agent.conversable_agent import ConversableAgent
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from byzerllm.utils.client import ByzerLLM
+from byzerllm.utils.retrieval import ByzerRetrieval
+from byzerllm.apps.agent import Agent,ChatResponse,get_agent_name
+from ray.util.client.common import ClientActorHandle, ClientObjectRef
+import byzerllm
+
+class AgentA(ConversableAgent):    
+    
+    @byzerllm.prompt()
+    def agent_prompt(self)->str:
+        '''
+        你是一个友善的Agent,你的名字叫Alice。
+        当有人问你 "你是谁?" 的时候,你会回答 "我是Alice,很高兴认识你!"
+        然后你会将收到的消息转发给你的好友Bob。
+        '''
+    
+    def __init__(
+        self,
+        name: str,
+        llm: ByzerLLM,
+        retrieval: ByzerRetrieval,
+        bob: Union[Agent, ClientActorHandle,str],
+        system_message: Optional[str] = None,      
+        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
+        max_consecutive_auto_reply: Optional[int] = None,
+        human_input_mode: Optional[str] = "NEVER",
+        **kwargs,
+    ):     
+        system_message = self.agent_prompt()   
+        super().__init__(
+            name,
+            llm,retrieval,
+            system_message,
+            is_termination_msg,
+            max_consecutive_auto_reply,
+            human_input_mode,
+            **kwargs,
+        )
+        self.bob = bob      
+
+    ## this function will reply to all agents(wihout agent filter), so it should be put at the head of the class
+    ## to make sure the other reply functions execute before this function. Otherwise, the other reply 
+    ## functions will not be executed.
+    @byzerllm.agent_reply()
+    def introduce_self(
         self,
         raw_message: Optional[Union[Dict,str,ChatResponse]] = None,
         messages: Optional[List[Dict]] = None,
         sender: Optional[Union[ClientActorHandle,Agent,str]] = None,
         config: Optional[Any] = None,
-        ) -> Tuple[bool, Union[str, Dict, None,ChatResponse]]:
+    ) -> Tuple[bool, Union[str, Dict, None,ChatResponse]]:  
+        # forward the message to bob
+        self.send(raw_message, self.bob)
+        # get the last message from bob
+        # _messages is a dictionary with agent names as keys and a list of messages as values
+        # you can use the get_agent_name function to get the name of an agent
+        message = self._messages[get_agent_name(self.bob)][-1]
+        return True, None
 
-        if messages is None:
-            messages = self._messages[get_agent_name(sender)]  
+    @byzerllm.agent_reply(lambda self:[self.bob])
+    def reply_bob(
+        self,
+        raw_message: Optional[Union[Dict,str,ChatResponse]] = None,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Union[ClientActorHandle,Agent,str]] = None,
+        config: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None,ChatResponse]]:  
+        # we don't want to reply to bob                    
+        return True, None      
+    
+        
+
+class AgentB(ConversableAgent):    
+    
+    @byzerllm.prompt()
+    def agent_prompt(self)->str:
+        '''
+        你是一个友善的Agent,你的名字叫Bob。
+        当有人问 "你是谁?" 的时候,你会回答 "我是Bob,Alice的好朋友,很高兴认识你!"
+        '''
+    
+    def __init__(
+        self,
+        name: str,
+        llm: ByzerLLM,
+        retrieval: ByzerRetrieval,
+        system_message: Optional[str] = None,        
+        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
+        max_consecutive_auto_reply: Optional[int] = None,
+        human_input_mode: Optional[str] = "NEVER",
+        **kwargs,
+    ):     
+        system_message = self.agent_prompt()   
+        super().__init__(
+            name,
+            llm,retrieval,
+            system_message,
+            is_termination_msg,
+            max_consecutive_auto_reply,
+            human_input_mode,
+            **kwargs,
+        )
+                
+    @byzerllm.agent_reply()
+    def introduce_self(
+        self,
+        raw_message: Optional[Union[Dict,str,ChatResponse]] = None,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Union[ClientActorHandle,Agent,str]] = None,
+        config: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None,ChatResponse]]:  
+        return True, {"content":"我是Bob,Alice的好朋友,很高兴认识你!","metadata":{}}
+
+
 ```
-
-Then register the `generate_xxxx_reply` to the agent in the `__init__` function:
+We have two agents, AgentA and AgentB. AgentA will forward the message to AgentB and then reply to the user with the last message from AgentB.
 
 ```python
-self._reply_func_list = []        
-self.register_reply([Agent, ClientActorHandle,str], SparkSQLAgent.generate_xxxx_reply) 
-self.register_reply([Agent, ClientActorHandle,str], ConversableAgent.check_termination_and_human_reply) 
-```
+import byzerllm
+byzerllm.connect_cluster()
+llm = byzerllm.ByzerLLM()
+llm.setup_template(model="sparkdesk_chat",template="auto")
+llm.setup_default_model_name("sparkdesk_chat")
 
-Then when a message comes, the function `generate_xxxx_reply` will be invoke.
-No matter the agent are local or remote, you can use the same `send` and `reply` function.
-
-If you want to terminate the chat: you can finally return like this:
-
-```python
-return True, {"content":reply,"metadata":{"TERMINATE":True}}    
-```
-
-Or make sure the `content` the last line is "TERMINATE". Then the `ConversableAgent.check_termination_and_human_reply` will check it when every chat happens.
-
-There are a lot of agent examples in [agent-extenions](https://github.com/allwefantasy/byzer-llm/tree/master/src/byzerllm/apps/agent/extensions).
-
-## Remote Agent
-
-You can use `from byzerllm.apps.agent import Agents` Agents to create a local or remote agent, 
-for example, you can create a remote agent using the following code:
-
-```python
-privew_file_agent = Agents.create_remote_agent(PreviewFileAgent,"privew_file_agent",llm,retrieval,
-                                   max_consecutive_auto_reply=3,
-                                   code_agent = python_interpreter
-                                   )
-```
-
-Notice that, remote agent can only talk to remote agent, and local agent can only talk to local agent.
-
-
-Here are a code example show you how to create and invoke the remote agent:
-
-```python
-from byzerllm.apps.agent import Agents
-from byzerllm.apps.agent.assistant_agent import AssistantAgent
 from byzerllm.apps.agent.user_proxy_agent import UserProxyAgent
-from byzerllm.apps.agent.extensions.python_codesandbox_agent import PythonSandboxAgent
-from byzerllm.apps.agent.extensions.preview_file_agent import PreviewFileAgent
 
-python_interpreter = Agents.create_remote_agent(PythonSandboxAgent,"python_interpreter",
-                                                llm,retrieval,
-                                                max_consecutive_auto_reply=1000,
-                                                system_message="you are a code sandbox")
+bob = AgentB("bob",llm=llm,retrieval=None)
+alice = AgentA("alice",llm=llm,retrieval=None,bob=bob)
+user = UserProxyAgent("user",llm=llm,retrieval=None,human_input_mode="NEVER",max_consecutive_auto_reply=0)
 
-privew_file_agent = Agents.create_remote_agent(PreviewFileAgent,"privew_file_agent",llm,retrieval,
-                                   max_consecutive_auto_reply=1000,
-                                   code_agent = python_interpreter
-                                   )
+user.initiate_chat(
+    recipient=alice,clear_history=True,message={
+        "content":"你是谁?"        
+    },
+)
 
-user = Agents.create_remote_agent(UserProxyAgent,"user",llm,retrieval,
-                                human_input_mode="NEVER",
-                                max_consecutive_auto_reply=0)
 
 ```
 
-Then you can begin the talk:
+Here we have two agents, AgentA and AgentB. AgentA will forward the message to AgentB and then reply to the user with the last message from AgentB.
+
+The output of the above code will be:
+
+```
+user (to alice):
+
+你是谁?
+
+--------------------------------------------------------------------------------
+alice (to bob):
+
+你是谁?
+
+--------------------------------------------------------------------------------
+bob (to alice):
+
+我是Bob,Alice的好朋友,很高兴认识你!
+```
+
+### 1.1 Agent Reply Function Order
+
+The order in which the reply functions are executed is determined by the order in which they are defined in the agent class. 
+
+The reply functions are executed in the order of their definition, If the function finds that the message is not for it, it can return False, and the next function will be executed.
+
+So you need to put the reply function which can reply all agents at the head of the class.
+
+## 2. Agent State
+
+In the provided code, state management is handled through the following mechanisms:
+
+1. Message History:
+   - The `ConversableAgent` class maintains a dictionary called `_messages` which stores the conversation history for each agent. The keys of the dictionary are the agent names (obtained using the `get_agent_name` function), and the values are lists of messages exchanged with each agent.
+   - When an agent receives a message, it appends the message to the corresponding list in the `_messages` dictionary using the `_append_message` method.
+   - The conversation history can be accessed using the `chat_messages` property or the `get_chat_messages` method.
+   - The `last_message` method allows retrieving the last message exchanged with a specific agent.
+
+2. Agent References:
+   - In the example code, `AgentA` is initialized with a reference to `AgentB` through the `bob` parameter in its constructor. This allows `AgentA` to send messages directly to `AgentB` using the `send` method.
+   - By storing references to other agents, an agent can maintain a state of its connections and communicate with them as needed.
+
+3. Agent-specific Variables:
+   - Each agent class can define its own instance variables to store agent-specific state information.
+   - For example, `AgentA` has an instance variable `self.bob` which stores the reference to `AgentB`. This variable can be used to keep track of the connected agent and perform actions based on that information.
+
+4. Reply Functions:
+   - The `@byzerllm.agent_reply()` decorator is used to define reply functions within an agent class. These functions are triggered when the agent receives a message from a specific sender or any sender (if no sender is specified).
+   - Reply functions can access the agent's state, such as the conversation history (`_messages`) and agent-specific variables, to make decisions and generate responses based on the current state.
+
+5. Conversation Termination:
+   - The `is_termination_msg` parameter in the agent constructor allows specifying a function that determines if a received message should terminate the conversation.
+   - By setting `max_consecutive_auto_reply` to 0 for the `UserProxyAgent`, it prevents the agent from engaging in further automatic replies after receiving a response from `AgentA`.
+   - The `reply_bob` function in `AgentA` is decorated with `@byzerllm.agent_reply(lambda self:[self.bob])` to handle messages from `AgentB` and terminate the conversation without sending a reply back to `AgentB`.
+
+These mechanisms collectively enable state management in the agent-based conversation system. The conversation history, agent references, and agent-specific variables allow agents to maintain and access relevant state information. The reply functions and conversation termination conditions provide control over the flow of the conversation based on the current state.
+
+
+
+## 3. Remote Agent
+
+You can slightly modify the previous example to use remote agents. Here is an example of how to use remote agents:
 
 ```python
-import ray
+from byzerllm.apps.agent.conversable_agent import ConversableAgent
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from byzerllm.utils.client import ByzerLLM
+from byzerllm.utils.retrieval import ByzerRetrieval
+from byzerllm.apps.agent import Agents,Agent,ChatResponse,get_agent_name
+from ray.util.client.common import ClientActorHandle, ClientObjectRef
+import byzerllm
 
-ray.get(privew_file_agent._prepare_chat.remote(python_interpreter, True))
+class AgentA(ConversableAgent):    
+    
+    @byzerllm.prompt()    
+    def agent_prompt(self)->str:
+        '''
+        你是一个友善的Agent,你的名字叫Alice。
+        当有人问你 "你是谁?" 的时候,你会回答 "我是Alice,很高兴认识你!"
+        然后你会将收到的消息转发给你的好友Bob。
+        '''
+    
+    def __init__(
+        self,
+        name: str,
+        llm: ByzerLLM,
+        retrieval: ByzerRetrieval,
+        bob: Union[Agent, ClientActorHandle,str],
+        system_message: Optional[str] = None,        
+        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
+        max_consecutive_auto_reply: Optional[int] = None,
+        human_input_mode: Optional[str] = "NEVER",
+        **kwargs,
+    ):        
+        system_message = self.agent_prompt()
+        super().__init__(
+            name,
+            llm,retrieval,
+            system_message,
+            is_termination_msg,
+            max_consecutive_auto_reply,
+            human_input_mode,
+            **kwargs,
+        )
+        self.bob = bob
 
-file_path = "/home/byzerllm/projects/jupyter-workspace/test.csv"
-file_ref = ray.put(open(file_path,"rb").read())
+    @byzerllm.agent_reply()
+    def introduce_self(
+        self,
+        raw_message: Optional[Union[Dict,str,ChatResponse]] = None,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Union[ClientActorHandle,Agent,str]] = None,
+        config: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None,ChatResponse]]:  
+        # forward the message to bob
+        self.send(raw_message, self.bob)
+        # get the last message from bob
+        # _messages is a dictionary with agent names as keys and a list of messages as values
+        # you can use the get_agent_name function to get the name of an agent
+        message = self._messages[get_agent_name(self.bob)][-1]
+        return True, None    
 
-ray.get(
-user.initiate_chat.remote(
-privew_file_agent,
-message={
-    "content":"",
-    "metadata":{
-        "file_path": file_path,
-        "file_ref": file_ref
-    }
-})
+    @byzerllm.agent_reply(lambda self:[self.bob])
+    def reply_bob(
+        self,
+        raw_message: Optional[Union[Dict,str,ChatResponse]] = None,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Union[ClientActorHandle,Agent,str]] = None,
+        config: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None,ChatResponse]]:  
+        # we don't want to reply to bob                    
+        return True, None    
+                
+        
+
+class AgentB(ConversableAgent):    
+    
+    @byzerllm.prompt()    
+    def agent_prompt(self)->str:
+        '''
+        你是一个友善的Agent,你的名字叫Bob。
+        当有人问 "你是谁?" 的时候,你会回答 "我是Bob,Alice的好朋友,很高兴认识你!"
+        '''
+    
+    def __init__(
+        self,
+        name: str,
+        llm: ByzerLLM,
+        retrieval: ByzerRetrieval,
+        system_message: Optional[str] = None,        
+        is_termination_msg: Optional[Callable[[Dict], bool]] = None,
+        max_consecutive_auto_reply: Optional[int] = None,
+        human_input_mode: Optional[str] = "NEVER",
+        **kwargs,
+    ):    
+        system_message = self.agent_prompt()    
+        super().__init__(
+            name,
+            llm,retrieval,
+            system_message,
+            is_termination_msg,
+            max_consecutive_auto_reply,
+            human_input_mode,
+            **kwargs,
+        )
+                
+    @byzerllm.agent_reply()
+    def introduce_self(
+        self,
+        raw_message: Optional[Union[Dict,str,ChatResponse]] = None,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Union[ClientActorHandle,Agent,str]] = None,
+        config: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None,ChatResponse]]:  
+        return True, {"content":"我是Bob,Alice的好朋友,很高兴认识你!","metadata":{}}
+
+import byzerllm
+byzerllm.connect_cluster()
+llm = byzerllm.ByzerLLM()
+llm.setup_template(model="sparkdesk_chat",template="auto")
+llm.setup_default_model_name("sparkdesk_chat")
+
+from byzerllm.apps.agent.user_proxy_agent import UserProxyAgent
+
+bob = Agents.create_remote_agent(AgentB,"bob",llm,None)
+
+alice = Agents.create_remote_agent(AgentA,"alice",llm,None,bob=bob)
+
+user = UserProxyAgent("user",llm=llm,retrieval=None,human_input_mode="NEVER",max_consecutive_auto_reply=0)
+
+user.initiate_chat(
+    recipient=alice,clear_history=True,message={
+        "content":"你是谁?"        
+    },
 )
+
 ```
 
-Since the agent is `remote`, so you should call the function in agent with `agent.function.remote` style.
+Here is the output of the above code:
 
-Here is the console output:
-
-```text
-(PreviewFileAgent pid=2135038) user (to privew_file_agent):
-(PreviewFileAgent pid=2135038) 
-(PreviewFileAgent pid=2135038) 
-(PreviewFileAgent pid=2135038) 
-(PreviewFileAgent pid=2135038) --------------------------------------------------------------------------------
-(PreviewFileAgent pid=2135038) python_interpreter (to privew_file_agent):
-(PreviewFileAgent pid=2135038) 
-(PreviewFileAgent pid=2135038) exitcode: 0 (execution succeeded)
-(PreviewFileAgent pid=2135038) Code output:    ID   Deaths  Year                 Entity
-(PreviewFileAgent pid=2135038) 0   1  1267360  1900  All natural disasters
-(PreviewFileAgent pid=2135038) 1   2   200018  1901  All natural disasters
-(PreviewFileAgent pid=2135038) 2   3    46037  1902  All natural disasters
-(PreviewFileAgent pid=2135038) 3   4     6506  1903  All natural disasters
-(PreviewFileAgent pid=2135038) 4   5    22758  1905  All natural disasters
-(PreviewFileAgent pid=2135038) 
-(PreviewFileAgent pid=2135038) 
-(PreviewFileAgent pid=2135038) --------------------------------------------------------------------------------
-(PythonSandboxAgent pid=2135037) privew_file_agent (to python_interpreter):
-(PythonSandboxAgent pid=2135037) 
-(PythonSandboxAgent pid=2135037) ```python
-(PythonSandboxAgent pid=2135037) import pandas as pd
-(PythonSandboxAgent pid=2135037) 
-(PythonSandboxAgent pid=2135037) file_path = "/home/byzerllm/projects/jupyter-workspace/test.csv"
-(PythonSandboxAgent pid=2135037) 
-(PythonSandboxAgent pid=2135037) try:
-(PythonSandboxAgent pid=2135037)     if file_path.endswith(".csv"):
-(PythonSandboxAgent pid=2135037)         df = pd.read_csv(file_path)
-(PythonSandboxAgent pid=2135037)     elif file_path.endswith(".xlsx") or file_path.endswith(".xls"):
-(PythonSandboxAgent pid=2135037)         df = pd.read_excel(file_path)
-(PythonSandboxAgent pid=2135037)     else:
-(PythonSandboxAgent pid=2135037)         raise ValueError("Unsupported file format")
-(PythonSandboxAgent pid=2135037)         
-(PythonSandboxAgent pid=2135037)     loaded_successfully = True
-(PythonSandboxAgent pid=2135037)     
-(PythonSandboxAgent pid=2135037) except Exception as e:
-(PythonSandboxAgent pid=2135037)     print(f"Failed to load file: {e}")
-(PythonSandboxAgent pid=2135037)     loaded_successfully = False
-(PythonSandboxAgent pid=2135037)     
-(PythonSandboxAgent pid=2135037) if loaded_successfully:
-(PythonSandboxAgent pid=2135037)     file_preview = df.head()
-(PythonSandboxAgent pid=2135037) else:
-(PythonSandboxAgent pid=2135037)     file_preview = "Error: Failed to load file"
-(PythonSandboxAgent pid=2135037)     
-(PythonSandboxAgent pid=2135037) print(file_preview)
-(PythonSandboxAgent pid=2135037) ```
-(PythonSandboxAgent pid=2135037) 
-(PythonSandboxAgent pid=2135037) This code reads the file located at `file_path` using either the `pd.read_csv()` or `pd.read_excel()` function depending on the file type (determined by the file extension). If the file is loaded successfully, the first 5 rows of the DataFrame are stored in the `file_preview` variable and printed. If there is an error loading the file, an error message is stored in the `file_preview` variable and printed instead.
-(PythonSandboxAgent pid=2135037) 
-(PythonSandboxAgent pid=2135037) --------------------------------------------------------------------------------
-(UserProxyAgent pid=2135039) privew_file_agent (to user):
-(UserProxyAgent pid=2135039) 
-(UserProxyAgent pid=2135039) ID,Deaths,Year,Entity
-(UserProxyAgent pid=2135039) 1,1267360,1900,All natural disasters
-(UserProxyAgent pid=2135039) 2,200018,1901,All natural disasters
-(UserProxyAgent pid=2135039) 3,46037,1902,All natural disasters
-(UserProxyAgent pid=2135039) 4,6506,1903,All natural disasters
-(UserProxyAgent pid=2135039) 5,22758,1905,All natural disasters
-(UserProxyAgent pid=2135039) 
-(UserProxyAgent pid=2135039) 
-(UserProxyAgent pid=2135039) --------------------------------------------------------------------------------
+```
+(AgentB pid=935730) alice (to bob):
+(AgentB pid=935730) 
+(AgentB pid=935730) 你是谁?
+(AgentB pid=935730) 
+(AgentB pid=935730) --------------------------------------------------------------------------------
+(AgentA pid=935731) user (to alice):
+(AgentA pid=935731) bob (to alice):
+(AgentA pid=935731) 我是Bob,Alice的好朋友,很高兴认识你!
 ```
 
-If you want to get agent's messagebox, try use the following code:
 
-```python
-ray.get(
-   user.get_chat_messages.remote() 
-)
-```
 
-The output:
+## 4. Agent Termination
 
-```text
-defaultdict(list,
-            {'privew_file_agent': [{'content': '',
-               'metadata': {'file_path': '/home/byzerllm/projects/jupyter-workspace/test.csv',
-                'file_ref': ObjectRef(00ffffffffffffffffffffffffffffffffffffff1800000002e1f505)},
-               'role': 'assistant'},
-              {'content': 'ID,Deaths,Year,Entity\n1,1267360,1900,All natural disasters\n2,200018,1901,All natural disasters\n3,46037,1902,All natural disasters\n4,6506,1903,All natural disasters\n5,22758,1905,All natural disasters\n',
-               'metadata': {'TERMINATE': True},
-               'role': 'user'}]})
-```
+If you want to terminate the conversation between two agents, you have the following options:
 
-## Development
+1. set the `max_consecutive_auto_reply` to 0 when you create agent. it prevents the agent from engaging in further automatic replies after receiving a response from Other agent.
+
+2. Return False/True,None in the reply function, the None will stop sending the message to the other agent.
+
+3. return False/True,{"content":"xxx",{"metadata":{"TERMINATE":True}}, the metadata will indicate the other agent that do not reply to this message.
+
+Please take care of the termination of the conversation, otherwise, the conversation will never stop.
 
 
 
